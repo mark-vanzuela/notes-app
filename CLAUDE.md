@@ -23,8 +23,9 @@ React SPA (Vite+TS)  ──HTTP/JSON──►  ASP.NET Core Web API (.NET 8)  �
 | `.github/workflows/` | CI/CD, path-filtered per app                              |
 | `docker-compose.yml` | Local dev: web + api + postgres                           |
 
-- EF Core **code-first migrations live in `api/src/NotesApp.Api/Migrations/`**. The C#
-  solution owns the schema — there is no separate SQL/db repo.
+- EF Core **code-first migrations live in `api/src/NotesApp.Infrastructure/Migrations/`**
+  (the DbContext's assembly — the idiomatic EF location). The C# solution owns the
+  schema — there is no separate SQL/db repo.
 
 ## Tooling (decided)
 
@@ -51,6 +52,43 @@ React SPA (Vite+TS)  ──HTTP/JSON──►  ASP.NET Core Web API (.NET 8)  �
 - Deploy job is guarded by `if: github.event_name != 'pull_request'`.
 - Optional later: GitHub Environment protection rule (manual approval) before deploy.
 
+## API (built)
+
+Clean architecture mirroring the user's `dotnet-angular-react/CustomerApi`:
+`NotesApp.Api` / `.Application` / `.Domain` / `.Infrastructure` + `NotesApp.UnitTests`.
+CQRS via MediatR (vertical-slice feature folders), FluentValidation + a
+`ValidationBehavior` pipeline, ProblemDetails `ExceptionHandlingMiddleware`, thin
+controllers → `ISender`, manual entity→DTO mapping, Swagger.
+
+- **Persistence:** EF Core 8 + Npgsql. `NotesDbContext` (+ `NotesDbContextFactory` for
+  design-time tooling), `EfNoteRepository`/`EfUserRepository` (Scoped, save immediately).
+  Soft-delete via global query filter `HasQueryFilter(n => !n.IsDeleted)`.
+- **Entities:** `Note` (Id, UserId, Title, Content, IsDeleted, audit) and `User`
+  (Id, GoogleSubjectId unique, Email, Name, PictureUrl, audit). Private setters + static
+  factories.
+- **Endpoints:** `POST /api/auth/google` (anonymous); `[Authorize]` CRUD at `api/notes`.
+- **Dev migrate-on-startup** in Development only (`db.Database.Migrate()` in Program.cs);
+  prod applies migrations via the deploy pipeline (see Neon section).
+- **Run:** `docker compose up --build db api`; Swagger at `http://localhost:8080/swagger`.
+  Build/test from `api/`: `dotnet build` / `dotnet test`.
+
+## Auth (Google sign-in → app JWT)
+
+- Frontend (later round) gets a Google **ID token** via Google Identity Services →
+  `POST /api/auth/google { idToken }` → API **verifies** it (`Google.Apis.Auth`, audience
+  = our Google Client ID) → **upserts a `User`** (first sight of a Google `sub` = sign-up)
+  → returns the app's **own JWT** (HMAC-SHA256, claims `sub`=User.Id/email/name).
+- Subsequent requests send `Authorization: Bearer <app-jwt>`; JwtBearer validates it.
+  `ICurrentUser`/`CurrentUser` reads the user id from the `sub`/NameIdentifier claim;
+  controllers set note ownership from it — **never** from the request body.
+- **Per-user notes:** all repo methods are scoped by `userId`; another user's note → 404.
+- **Config / secrets** (`.env.example` + compose env mirror these):
+  `Authentication__Google__ClientId`, `Jwt__Issuer`, `Jwt__Audience`, `Jwt__Key` (secret),
+  `Jwt__ExpiryMinutes`. Dev placeholders in `appsettings.Development.json`; prod via
+  env/Key Vault. Google Client ID is created in Cloud Console (Web app, JS origin
+  `http://localhost:5173`) — only needed for real token verification.
+- **Deferred:** refresh tokens / logout-revocation (app JWT is short-lived).
+
 ## Connection string convention
 
 The API **always** reads `ConnectionStrings__Default` from its environment. Only the
@@ -68,10 +106,12 @@ The API **always** reads `ConnectionStrings__Default` from its environment. Only
 2. Store secrets — never in code/committed `.env`:
    - GitHub Actions repo secret (e.g. `NEON_CONNECTION_STRING`) for the deploy.
    - Azure env var `ConnectionStrings__Default` (prefer Key Vault) for the running API.
-3. **Migrations** applied during the **api deploy** — preferred: a pipeline step running
-   an idempotent SQL script (`dotnet ef migrations script --idempotent`) against Neon,
-   rather than `Database.Migrate()` on startup (avoids multi-replica race + implicit
-   schema-on-boot). Decided fully in the api/infra round.
+3. **Migrations** applied via the **`db-migrate` GitHub workflow** (manual
+   `workflow_dispatch`): runs `dotnet ef database update` against the target DB using the
+   `DATABASE_CONNECTION_STRING` secret, and uploads the idempotent SQL as an audit
+   artifact. Locally: `./scripts/db-migrate.sh [--connection <conn>] [--target <name|0>]`.
+   This is preferred over `Database.Migrate()` on startup (avoids multi-replica race +
+   implicit schema-on-boot). **Use Neon's DIRECT (non-pooled) endpoint** for migrations.
 4. API connects to Neon via the same `ConnectionStrings__Default` var — identical code.
 
 **Neon gotchas:**
@@ -83,12 +123,15 @@ The API **always** reads `ConnectionStrings__Default` from its environment. Only
 
 ## Status & next rounds
 
-Current commit = **structure scaffold only**. App code, Dockerfile/Compose service
-bodies, CI job bodies, and Azure IaC are deferred. The `db` Compose service IS
-functional (`docker compose up db`) for early API work.
+**Done:** repo structure; **API round** (notes CRUD + Google auth + per-user ownership +
+EF Core/Postgres + `InitialCreate` migration + unit tests + Dockerfile + compose `api`
+service). Build + tests pass; container e2e (`docker compose up --build db api`) not yet
+run locally (Docker Desktop needs reinstall).
 
-Planned rounds (each planned separately before building): **frontend** → **api** →
-**infra/CI bodies**.
+**Deferred:** frontend app; CI job bodies; Azure IaC (Terraform); Neon provisioning + prod
+migration pipeline.
+
+Planned rounds (each planned separately before building): **frontend** → **infra/CI bodies**.
 
 ## Estimated cost (demo traffic: owner + occasional reviewer)
 

@@ -1,8 +1,7 @@
 # Base Compose stack for local development: web + api + postgres.
 #
-# NOTE: This is a STRUCTURE skeleton. The `web` and `api` services are commented
-# out until their Dockerfiles and source land in later rounds. The `db` service
-# is functional so the database can be brought up early for API development.
+# `db` and `api` are functional. The `web` service stays commented out until the
+# frontend round. Run `docker compose up --build db api` for the backend.
 
 services:
   db:
@@ -21,17 +20,24 @@ services:
       timeout: 5s
       retries: 5
 
-  # api:
-  #   build:
-  #     context: ./api
-  #   environment:
-  #     ConnectionStrings__Default: ${ConnectionStrings__Default}
-  #     ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Development}
-  #   ports:
-  #     - "${API_PORT:-8080}:8080"
-  #   depends_on:
-  #     db:
-  #       condition: service_healthy
+  api:
+    build:
+      context: ./api
+    environment:
+      # Point at the Compose `db` service; same var is set to Neon in prod.
+      ConnectionStrings__Default: ${ConnectionStrings__Default:-Host=db;Port=5432;Database=notesdb;Username=notes;Password=notes_dev_password}
+      ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Development}
+      # Auth config — supply real values via your .env (never commit secrets).
+      Authentication__Google__ClientId: ${Authentication__Google__ClientId:-}
+      Jwt__Issuer: ${Jwt__Issuer:-notes-app}
+      Jwt__Audience: ${Jwt__Audience:-notes-app}
+      Jwt__Key: ${Jwt__Key:-dev-only-super-secret-signing-key-change-me-32+chars}
+      Jwt__ExpiryMinutes: ${Jwt__ExpiryMinutes:-60}
+    ports:
+      - "${API_PORT:-8080}:8080"
+    depends_on:
+      db:
+        condition: service_healthy
 
   # web:
   #   build:

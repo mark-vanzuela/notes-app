@@ -1,0 +1,81 @@
+name: db-migrate
+
+# Manually-triggered database migration.
+#
+# Applies the EF Core migrations in NotesApp.Infrastructure/Migrations to a target
+# database (e.g. Neon) using `dotnet ef database update`. Run it from the GitHub
+# "Actions" tab → "db-migrate" → "Run workflow".
+#
+# REQUIRED SECRET: DATABASE_CONNECTION_STRING — an Npgsql connection string for the
+# target DB. For Neon, use the DIRECT (non-pooled, no "-pooler") endpoint with
+# `SSL Mode=Require` — DDL does not play well with transaction pooling.
+on:
+  workflow_dispatch:
+    inputs:
+      target_migration:
+        description: "Migration to update TO (a name, or 0 to revert ALL). Blank = latest."
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+
+    # Optional: gate this behind a manual approval by creating a GitHub Environment
+    # named "production" with a required reviewer, then uncommenting the next line.
+    # The DATABASE_CONNECTION_STRING secret can live on that environment instead of
+    # the repo for tighter scoping.
+    # environment: production
+
+    env:
+      # The design-time factory (NotesDbContextFactory) reads this env var.
+      ConnectionStrings__Default: ${{ secrets.DATABASE_CONNECTION_STRING }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Install EF Core tools
+        run: dotnet tool install --global dotnet-ef --version 8.0.10
+
+      - name: Build
+        working-directory: api
+        run: dotnet build NotesApp.sln -c Release
+
+      # Save the idempotent SQL as an artifact so the exact DDL applied is auditable
+      # in the run, even though we apply via `database update` below.
+      - name: Generate idempotent SQL (audit artifact)
+        working-directory: api
+        run: >
+          dotnet ef migrations script --idempotent --no-build -c Release
+          --project src/NotesApp.Infrastructure
+          --startup-project src/NotesApp.Api
+          --output migrations.sql
+
+      - name: Upload migration script
+        uses: actions/upload-artifact@v4
+        with:
+          name: migration-script
+          path: api/migrations.sql
+
+      - name: Apply migrations
+        working-directory: api
+        run: |
+          if [ -n "${{ inputs.target_migration }}" ]; then
+            echo "Updating database to migration: ${{ inputs.target_migration }}"
+            dotnet ef database update "${{ inputs.target_migration }}" --no-build -c Release \
+              --project src/NotesApp.Infrastructure \
+              --startup-project src/NotesApp.Api
+          else
+            echo "Updating database to the latest migration"
+            dotnet ef database update --no-build -c Release \
+              --project src/NotesApp.Infrastructure \
+              --startup-project src/NotesApp.Api
+          fi
