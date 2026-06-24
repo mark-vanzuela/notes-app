@@ -1,0 +1,47 @@
+# Base Compose stack for local development: web + api + postgres.
+#
+# NOTE: This is a STRUCTURE skeleton. The `web` and `api` services are commented
+# out until their Dockerfiles and source land in later rounds. The `db` service
+# is functional so the database can be brought up early for API development.
+
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-notes}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-notes_dev_password}
+      POSTGRES_DB: ${POSTGRES_DB:-notesdb}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-notes} -d ${POSTGRES_DB:-notesdb}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # api:
+  #   build:
+  #     context: ./api
+  #   environment:
+  #     ConnectionStrings__Default: ${ConnectionStrings__Default}
+  #     ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Development}
+  #   ports:
+  #     - "${API_PORT:-8080}:8080"
+  #   depends_on:
+  #     db:
+  #       condition: service_healthy
+
+  # web:
+  #   build:
+  #     context: ./frontend
+  #   environment:
+  #     VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:8080}
+  #   ports:
+  #     - "${WEB_PORT:-5173}:80"
+  #   depends_on:
+  #     - api
+
+volumes:
+  pgdata:

@@ -1,0 +1,2 @@
+# Placeholder so the Migrations/ folder is tracked. EF Core code-first migration
+# files land here once the API and DbContext are scaffolded.

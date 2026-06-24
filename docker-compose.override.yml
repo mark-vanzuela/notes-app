@@ -1,0 +1,21 @@
+# Local-dev overrides — automatically merged on top of docker-compose.yml by
+# `docker compose up`. Use this for hot-reload, source bind-mounts, and dev-only
+# ports without touching the base file.
+#
+# NOTE: STRUCTURE skeleton. Overrides are added alongside the api/web services
+# in a later round.
+
+services: {}
+  # api:
+  #   build:
+  #     target: dev          # dev stage with `dotnet watch`
+  #   volumes:
+  #     - ./api/src:/src
+
+  # web:
+  #   build:
+  #     target: dev          # dev stage with `vite` dev server
+  #   command: npm run dev -- --host
+  #   volumes:
+  #     - ./frontend:/app
+  #     - /app/node_modules

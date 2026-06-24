@@ -1,0 +1,41 @@
+# ── Environment / secrets ─────────────────────────────────────────────
+.env
+.env.*
+!.env.example
+
+# ── Node / frontend ───────────────────────────────────────────────────
+node_modules/
+dist/
+build/
+.vite/
+*.local
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ── .NET / API ────────────────────────────────────────────────────────
+bin/
+obj/
+*.user
+*.suo
+.vs/
+artifacts/
+[Tt]est[Rr]esults/
+*.nupkg
+
+# ── IDE / editor ──────────────────────────────────────────────────────
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+*.swp
+
+# ── OS ────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+
+# ── Infra ─────────────────────────────────────────────────────────────
+*.tfstate
+*.tfstate.*
+.terraform/

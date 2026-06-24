@@ -1,0 +1,32 @@
+name: frontend
+
+# PR to main  → validate only (build + test), NO deploy.
+# Push to main → deploy the frontend to Azure (path-filtered to frontend/**).
+# workflow_dispatch → manual / force deploy (and initial seed).
+on:
+  pull_request:
+    branches: [main]
+    paths: ["frontend/**", ".github/workflows/frontend.yml"]
+  push:
+    branches: [main]
+    paths: ["frontend/**", ".github/workflows/frontend.yml"]
+  workflow_dispatch:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # TODO (frontend round): setup-node, npm ci, lint, test, build, docker build.
+      - run: echo "frontend validate — pipeline body added in the frontend round"
+
+  deploy:
+    # Deploy only on push/dispatch to main, never on PRs.
+    if: github.event_name != 'pull_request'
+    needs: validate
+    runs-on: ubuntu-latest
+    # environment: production   # enable for the manual-approval gate (deferred)
+    steps:
+      - uses: actions/checkout@v4
+      # TODO (infra round): build & push image, deploy to Azure.
+      - run: echo "frontend deploy — pipeline body added once Azure target is chosen"

@@ -1,0 +1,33 @@
+name: api
+
+# PR to main  → validate only (build + test), NO deploy.
+# Push to main → deploy the API to Azure (path-filtered to api/**).
+# workflow_dispatch → manual / force deploy (and initial seed).
+on:
+  pull_request:
+    branches: [main]
+    paths: ["api/**", ".github/workflows/api.yml"]
+  push:
+    branches: [main]
+    paths: ["api/**", ".github/workflows/api.yml"]
+  workflow_dispatch:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # TODO (api round): setup-dotnet, dotnet restore/build/test, docker build.
+      - run: echo "api validate — pipeline body added in the api round"
+
+  deploy:
+    # Deploy only on push/dispatch to main, never on PRs.
+    if: github.event_name != 'pull_request'
+    needs: validate
+    runs-on: ubuntu-latest
+    # environment: production   # enable for the manual-approval gate (deferred)
+    steps:
+      - uses: actions/checkout@v4
+      # TODO (infra round): build & push image, apply EF Core migrations to Neon,
+      # deploy to Azure.
+      - run: echo "api deploy — pipeline body added once Azure target is chosen"

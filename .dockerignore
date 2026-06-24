@@ -1,0 +1,25 @@
+# Keep build contexts small and reproducible.
+**/.git
+**/.github
+**/.vs
+**/.vscode
+**/.idea
+
+# Node
+**/node_modules
+**/dist
+**/build
+**/.vite
+
+# .NET
+**/bin
+**/obj
+
+# Env / secrets
+**/.env
+**/.env.*
+!**/.env.example
+
+# Docs / misc
+**/*.md
+infra
