@@ -43,14 +43,30 @@ React SPA (Vite+TS)  ──HTTP/JSON──►  ASP.NET Core Web API (.NET 8)  �
 
 ## Environments & deployment (decided)
 
-- **dev = local Docker Compose** (web + api + postgres). No hosted dev env in Azure.
-- **`main` = production = the single Azure environment.** No `prod` branch.
-- Flow: feature branch → **PR to `main`** runs CI **validation only** (build + test +
-  docker build, NO deploy) → **merge to `main`** triggers **path-filtered deploy** to
-  Azure (frontend changed → deploy web; api changed → deploy api; both → both).
-- Each workflow has `workflow_dispatch` for manual/force deploys + initial seed.
-- Deploy job is guarded by `if: github.event_name != 'pull_request'`.
-- Optional later: GitHub Environment protection rule (manual approval) before deploy.
+- **dev = local Docker Compose** (web + api + postgres + pgadmin). No hosted dev env in Azure.
+- **Branches: `dev` (integration) + `main` (production).** Feature branches → PR into
+  `dev`; PR **`dev`→`main`** to release. Local-dev environment = Compose, not a branch.
+- **CI/CD (built):** two path-aware workflows, `.github/workflows/api.yml` &
+  `frontend.yml`:
+  - **`validate`** ("API CI" / "Frontend CI") runs on **every PR** to `dev`/`main`
+    (NOT path-filtered, so the required checks always report): api = dotnet build+test;
+    frontend = npm ci + lint + test + build.
+  - **`publish`** runs only on **push to `main`** (path-filtered) — builds & pushes images
+    to **ghcr** (`ghcr.io/mark-vanzuela/notes-app-{api,web}`, tags `latest` + `sha-<sha>`)
+    via the built-in `GITHUB_TOKEN` (`packages: write`). Images are **public**.
+  - `concurrency` cancels superseded runs; `workflow_dispatch` for manual runs.
+- **Branch protection on `main`** (set via `gh api`): require a PR (no direct pushes),
+  require status checks **"API CI" + "Frontend CI"** to pass + branch up-to-date, block
+  force-push/deletion. **No required approval** (solo dev can't self-approve) — the user
+  reviews and merges. `enforce_admins: false` so the owner can merge their own PRs.
+  → **Don't push to `main` directly; land work on `dev` and open a PR.**
+- **Frontend image is build-time-env**: `publish` passes `VITE_API_BASE_URL` +
+  `VITE_GOOGLE_CLIENT_ID` from GitHub Actions **repo variables** (`vars.*`, public). Set
+  `VITE_GOOGLE_CLIENT_ID` now; set `VITE_API_BASE_URL` to the real API URL in the infra round.
+- **One-time manual:** flip the two ghcr packages to **Public** after first publish.
+- **Deploy-to-Azure: DEFERRED to the infra round** — a `deploy` job will pull the ghcr
+  image and update ACA (`az containerapp update`), optionally behind a `production`
+  Environment approval gate. Migrations via the `db-migrate` workflow / a deploy step.
 
 ## API (built)
 
@@ -153,13 +169,15 @@ The API **always** reads `ConnectionStrings__Default` from its environment. Only
 EF Core/Postgres + `InitialCreate` migration + unit tests + Dockerfile + compose `api`
 service) — verified end-to-end via `docker compose up`; pgAdmin added at `:5050`.
 **Frontend round** (React+Vite+TS SPA, Google sign-in, notes card-grid CRUD, Redux
-Toolkit, Vitest+RTL tests, nginx Dockerfile + compose `web`). Build + both test suites
-pass.
+Toolkit, Vitest+RTL tests, nginx Dockerfile + compose `web`) — verified end-to-end in
+containers with a real Google sign-in. **CI round** (`api.yml`/`frontend.yml`: validate
+on every PR + publish images to ghcr on merge to main; `dev`+`main` branches; branch
+protection on `main`).
 
-**Deferred:** CI job bodies; Azure IaC (Terraform); Neon provisioning + prod migration
-pipeline. Real Google sign-in requires the user's Google Client ID in web + API.
+**Deferred:** Azure IaC (Terraform: ACA, Log Analytics) + the actual deploy job (pulls
+the ghcr images); Neon provisioning + prod migration pipeline; prod `VITE_API_BASE_URL`.
 
-Planned rounds (each planned separately before building): **infra / CI bodies**.
+Planned rounds (each planned separately before building): **infra + Azure deploy**.
 
 ## Estimated cost (demo traffic: owner + occasional reviewer)
 
