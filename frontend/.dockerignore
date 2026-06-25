@@ -1,0 +1,10 @@
+# Keep host build output + deps out of the image build context.
+node_modules
+dist
+.env
+.env.*
+!.env.example
+Dockerfile
+.dockerignore
+README.md
+FLOW.md

@@ -1,7 +1,7 @@
 # Base Compose stack for local development: web + api + postgres + pgadmin.
 #
-# `db`, `api`, and `pgadmin` are functional. The `web` service stays commented out
-# until the frontend round. Run `docker compose up --build` for the backend + DB UI.
+# All services are functional. `docker compose up --build` runs the whole stack;
+# day-to-day frontend dev usually uses the Vite dev server (cd frontend && npm run dev).
 
 services:
   db:
@@ -61,15 +61,17 @@ services:
       db:
         condition: service_healthy
 
-  # web:
-  #   build:
-  #     context: ./frontend
-  #   environment:
-  #     VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:8080}
-  #   ports:
-  #     - "${WEB_PORT:-5173}:80"
-  #   depends_on:
-  #     - api
+  web:
+    build:
+      context: ./frontend
+      # Vite bakes these in at BUILD time, so they're build args (not runtime env).
+      args:
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:8080/api}
+        VITE_GOOGLE_CLIENT_ID: ${VITE_GOOGLE_CLIENT_ID:-}
+    ports:
+      - "${WEB_PORT:-5173}:80"
+    depends_on:
+      - api
 
 volumes:
   pgdata:

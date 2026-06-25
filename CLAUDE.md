@@ -89,6 +89,32 @@ controllers → `ISender`, manual entity→DTO mapping, Swagger.
   `http://localhost:5173`) — only needed for real token verification.
 - **Deferred:** refresh tokens / logout-revocation (app JWT is short-lived).
 
+## Frontend (built)
+
+React 19 + Vite + TypeScript SPA in `frontend/`, mirroring the user's
+`dotnet-angular-react/react-app` conventions: **Redux Toolkit** (slices + async thunks +
+selectors + typed hooks), **CSS modules** + global utilities in `index.css`, a typed
+`fetch` wrapper (`api/client.ts`) + per-resource API modules, feature folders,
+react-router v7. Heavily commented; see `frontend/FLOW.md` for the learning walkthrough.
+
+- **Auth**: `@react-oauth/google` `<GoogleLogin>` → Google ID token →
+  `loginWithGoogle` thunk → `POST /api/auth/google` → app JWT + user, stored in Redux +
+  `localStorage` (survives refresh). `api/client.ts` attaches `Bearer` token and triggers
+  `logout` on 401. `RequireAuth` guards note routes; `/login` otherwise.
+- **Notes UI**: responsive **card grid** (`NotesList`) + create/edit `NoteForm`.
+- **Testing**: **Vitest + React Testing Library** (jsdom). `npm run test:run`. Slice tests
+  (mock the API module via `vi.mock`) + a `NotesList` component test via a
+  `renderWithProviders` helper (`src/test/test-utils.tsx`).
+- **Config (build-time, baked by Vite)**: `VITE_API_BASE_URL`, `VITE_GOOGLE_CLIENT_ID`
+  (`frontend/.env`, gitignored). **Real sign-in needs the Google Client ID set in BOTH
+  the frontend (`VITE_GOOGLE_CLIENT_ID`) and the API (`Authentication:Google:ClientId`) —
+  they must match**, and the OAuth client's authorized JS origin must include
+  `http://localhost:5173`.
+- **Container**: multi-stage `frontend/Dockerfile` (node build → nginx, SPA fallback in
+  `nginx.conf`); `web` service in compose (build args pass the `VITE_*` values).
+- **Run**: `cd frontend && npm install && npm run dev` (→ `:5173`), or whole stack via
+  `docker compose up --build`.
+
 ## Connection string convention
 
 The API **always** reads `ConnectionStrings__Default` from its environment. Only the
@@ -125,13 +151,15 @@ The API **always** reads `ConnectionStrings__Default` from its environment. Only
 
 **Done:** repo structure; **API round** (notes CRUD + Google auth + per-user ownership +
 EF Core/Postgres + `InitialCreate` migration + unit tests + Dockerfile + compose `api`
-service). Build + tests pass; container e2e (`docker compose up --build db api`) not yet
-run locally (Docker Desktop needs reinstall).
+service) — verified end-to-end via `docker compose up`; pgAdmin added at `:5050`.
+**Frontend round** (React+Vite+TS SPA, Google sign-in, notes card-grid CRUD, Redux
+Toolkit, Vitest+RTL tests, nginx Dockerfile + compose `web`). Build + both test suites
+pass.
 
-**Deferred:** frontend app; CI job bodies; Azure IaC (Terraform); Neon provisioning + prod
-migration pipeline.
+**Deferred:** CI job bodies; Azure IaC (Terraform); Neon provisioning + prod migration
+pipeline. Real Google sign-in requires the user's Google Client ID in web + API.
 
-Planned rounds (each planned separately before building): **frontend** → **infra/CI bodies**.
+Planned rounds (each planned separately before building): **infra / CI bodies**.
 
 ## Estimated cost (demo traffic: owner + occasional reviewer)
 

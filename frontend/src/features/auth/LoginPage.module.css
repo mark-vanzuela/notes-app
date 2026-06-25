@@ -1,0 +1,28 @@
+.wrap {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 70vh;
+  padding: 1rem;
+}
+
+.card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 2.5rem;
+  max-width: 380px;
+  width: 100%;
+  text-align: center;
+}
+
+.card h1 {
+  margin-bottom: 0.5rem;
+}
+
+.button {
+  margin-top: 1.5rem;
+  display: flex;
+  justify-content: center;
+}
