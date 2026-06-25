@@ -1,7 +1,7 @@
-# Base Compose stack for local development: web + api + postgres.
+# Base Compose stack for local development: web + api + postgres + pgadmin.
 #
-# `db` and `api` are functional. The `web` service stays commented out until the
-# frontend round. Run `docker compose up --build db api` for the backend.
+# `db`, `api`, and `pgadmin` are functional. The `web` service stays commented out
+# until the frontend round. Run `docker compose up --build` for the backend + DB UI.
 
 services:
   db:
@@ -39,6 +39,28 @@ services:
       db:
         condition: service_healthy
 
+  # pgAdmin — web UI to browse/query the Postgres database during local dev.
+  # Open http://localhost:5050 and log in with the email/password below. The
+  # "Notes (local)" server is pre-registered (see docker/pgadmin/servers.json);
+  # on first connect enter the DB password (POSTGRES_PASSWORD, default
+  # "notes_dev_password").
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL:-admin@admin.com}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD:-admin}
+      # Desktop mode: skip the extra master-password prompt for a smoother local UX.
+      PGADMIN_CONFIG_SERVER_MODE: "False"
+      PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: "False"
+    ports:
+      - "${PGADMIN_PORT:-5050}:80"
+    volumes:
+      - ./docker/pgadmin/servers.json:/pgadmin4/servers.json:ro
+      - pgadmin_data:/var/lib/pgadmin
+    depends_on:
+      db:
+        condition: service_healthy
+
   # web:
   #   build:
   #     context: ./frontend
@@ -51,3 +73,4 @@ services:
 
 volumes:
   pgdata:
+  pgadmin_data:
