@@ -1,33 +1,79 @@
 name: api
 
-# PR to main  → validate only (build + test), NO deploy.
-# Push to main → deploy the API to Azure (path-filtered to api/**).
-# workflow_dispatch → manual / force deploy (and initial seed).
+# CI for the ASP.NET API.
+#   - PRs to dev/main  → "API CI" job: build + test (required check; runs on every PR
+#     so the required status always reports).
+#   - Push to main     → also publish the container image to ghcr (path-filtered to api/**).
+#   - workflow_dispatch → manual run.
+# Deploy-to-Azure is added in the infra round (it will pull the image published here).
 on:
   pull_request:
-    branches: [main]
-    paths: ["api/**", ".github/workflows/api.yml"]
+    branches: [main, dev]
   push:
     branches: [main]
     paths: ["api/**", ".github/workflows/api.yml"]
   workflow_dispatch:
 
+concurrency:
+  group: api-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   validate:
+    name: API CI
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      # TODO (api round): setup-dotnet, dotnet restore/build/test, docker build.
-      - run: echo "api validate — pipeline body added in the api round"
 
-  deploy:
-    # Deploy only on push/dispatch to main, never on PRs.
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Restore
+        working-directory: api
+        run: dotnet restore NotesApp.sln
+
+      - name: Build
+        working-directory: api
+        run: dotnet build NotesApp.sln -c Release --no-restore
+
+      - name: Test
+        working-directory: api
+        run: dotnet test NotesApp.sln -c Release --no-build --verbosity normal
+
+  publish:
+    name: Publish API image
+    # Never on PRs — only on push to main (or manual dispatch).
     if: github.event_name != 'pull_request'
     needs: validate
     runs-on: ubuntu-latest
-    # environment: production   # enable for the manual-approval gate (deferred)
+    permissions:
+      contents: read
+      packages: write
     steps:
       - uses: actions/checkout@v4
-      # TODO (infra round): build & push image, apply EF Core migrations to Neon,
-      # deploy to Azure.
-      - run: echo "api deploy — pipeline body added once Azure target is chosen"
+
+      - name: Log in to ghcr.io
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Image metadata (tags + labels)
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/mark-vanzuela/notes-app-api
+          tags: |
+            type=raw,value=latest
+            type=sha,prefix=sha-
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: ./api
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
