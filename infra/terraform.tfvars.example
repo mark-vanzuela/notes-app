@@ -1,0 +1,18 @@
+# Copy to terraform.tfvars and fill in. terraform.tfvars is git-ignored.
+
+subscription_id  = "00000000-0000-0000-0000-000000000000"
+google_client_id = "668077276067-fmts8b2tom2a6c3e7vvgioecsm9njd3l.apps.googleusercontent.com"
+
+# Secrets (NEVER commit real values):
+neon_pooled_connection_string = "Host=ep-xxxx-pooler.<region>.aws.neon.tech;Database=notesdb;Username=...;Password=...;SSL Mode=Require;Trust Server Certificate=true"
+jwt_key                       = "CHANGE-ME-a-strong-random-key-at-least-32-characters"
+
+# Budget alert:
+budget_alert_email = "vanzuelamcd@gmail.com"
+
+# Optional overrides (defaults shown):
+# location          = "southeastasia"
+# budget_amount     = 1
+# budget_start_date = "2026-07-01T00:00:00Z"   # first of a month, UTC
+# max_replicas      = 2
+# log_daily_quota_gb = 0.5

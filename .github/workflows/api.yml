@@ -68,7 +68,7 @@ jobs:
           images: ghcr.io/mark-vanzuela/notes-app-api
           tags: |
             type=raw,value=latest
-            type=sha,prefix=sha-
+            type=sha,prefix=sha-,format=long
 
       - name: Build and push
         uses: docker/build-push-action@v6
@@ -77,3 +77,51 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+
+  deploy:
+    name: Deploy API to Azure
+    # Only after publish, never on PRs, and only once infra is live
+    # (set repo variable DEPLOY_ENABLED=true after the first terraform apply).
+    if: github.event_name != 'pull_request' && vars.DEPLOY_ENABLED == 'true'
+    needs: publish
+    runs-on: ubuntu-latest
+    environment: production
+    permissions:
+      id-token: write   # OIDC token for azure/login
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Azure login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Install EF Core tools
+        run: dotnet tool install --global dotnet-ef --version 8.0.10
+
+      # Apply migrations against Neon's DIRECT endpoint BEFORE rolling the image,
+      # so the new code never runs against an un-migrated schema.
+      - name: Apply database migrations
+        working-directory: api
+        env:
+          ConnectionStrings__Default: ${{ secrets.DATABASE_CONNECTION_STRING }}
+        run: >
+          dotnet ef database update
+          --project src/NotesApp.Infrastructure
+          --startup-project src/NotesApp.Api
+
+      # Immutable sha tag — ACA creates a new revision only when the image ref changes.
+      - name: Update Container App image
+        run: >
+          az containerapp update
+          --name ${{ vars.ACA_API_NAME }}
+          --resource-group ${{ vars.AZURE_RESOURCE_GROUP }}
+          --image ghcr.io/mark-vanzuela/notes-app-api:sha-${{ github.sha }}

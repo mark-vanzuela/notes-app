@@ -73,7 +73,7 @@ jobs:
           images: ghcr.io/mark-vanzuela/notes-app-web
           tags: |
             type=raw,value=latest
-            type=sha,prefix=sha-
+            type=sha,prefix=sha-,format=long
 
       - name: Build and push
         uses: docker/build-push-action@v6
@@ -83,8 +83,32 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           # Vite bakes these in at build time. Set as GitHub Actions repo VARIABLES
-          # (public, not secrets). VITE_API_BASE_URL gets its real prod value in the
-          # infra round once the API's Azure URL exists.
+          # (public, not secrets). VITE_API_BASE_URL = https://<api_fqdn>/api after the
+          # first terraform apply.
           build-args: |
             VITE_API_BASE_URL=${{ vars.VITE_API_BASE_URL }}
             VITE_GOOGLE_CLIENT_ID=${{ vars.VITE_GOOGLE_CLIENT_ID }}
+
+  deploy:
+    name: Deploy web to Azure
+    if: github.event_name != 'pull_request' && vars.DEPLOY_ENABLED == 'true'
+    needs: publish
+    runs-on: ubuntu-latest
+    environment: production
+    permissions:
+      id-token: write   # OIDC token for azure/login
+      contents: read
+    steps:
+      - name: Azure login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Update Container App image
+        run: >
+          az containerapp update
+          --name ${{ vars.ACA_WEB_NAME }}
+          --resource-group ${{ vars.AZURE_RESOURCE_GROUP }}
+          --image ghcr.io/mark-vanzuela/notes-app-web:sha-${{ github.sha }}
