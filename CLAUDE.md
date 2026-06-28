@@ -64,9 +64,13 @@ React SPA (Vite+TS)  ──HTTP/JSON──►  ASP.NET Core Web API (.NET 8)  �
   `VITE_GOOGLE_CLIENT_ID` from GitHub Actions **repo variables** (`vars.*`, public). Set
   `VITE_GOOGLE_CLIENT_ID` now; set `VITE_API_BASE_URL` to the real API URL in the infra round.
 - **One-time manual:** flip the two ghcr packages to **Public** after first publish.
-- **Deploy-to-Azure: DEFERRED to the infra round** — a `deploy` job will pull the ghcr
-  image and update ACA (`az containerapp update`), optionally behind a `production`
-  Environment approval gate. Migrations via the `db-migrate` workflow / a deploy step.
+- **Deploy-to-Azure (built — infra round):** each workflow's `deploy` job (gated
+  `if: … && vars.DEPLOY_ENABLED == 'true'`, `environment: production`) logs in via **OIDC**
+  (`AZURE_CLIENT_ID/TENANT_ID/SUBSCRIPTION_ID` secrets) and runs
+  `az containerapp update --image …:sha-<full-sha>` (immutable tag → ACA rolls a new
+  revision). The **api** deploy first runs EF Core migrations against Neon's **direct**
+  endpoint (`DATABASE_CONNECTION_STRING` secret). Set `DEPLOY_ENABLED=true` only after the
+  first `terraform apply`. Images are tagged `sha-<full-sha>` (publish uses `format=long`).
 
 ## API (built)
 
@@ -163,6 +167,25 @@ The API **always** reads `ConnectionStrings__Default` from its environment. Only
 - **Auto-suspend (free tier):** scales to zero after ~5 min idle → first request after
   idle has a cold-start delay. Fine for a demo.
 
+## Infra (Azure, Terraform — built)
+
+IaC lives in `infra/`. Single prod environment on **Azure Container Apps**.
+- **`infra/bootstrap/`** (run once, **local state**): creates the Terraform remote-state
+  storage (RG `notes-app-tfstate-rg` + storage account w/ random suffix + `tfstate`
+  container) and the **GitHub OIDC identity** (Entra app + SP + federated creds for
+  `ref:refs/heads/main` and `environment:production` + Contributor role). Outputs →
+  `AZURE_*` GitHub secrets + the state storage-account name.
+- **`infra/`** (remote state via `-backend-config="storage_account_name=…"`): RG
+  `notes-app-rg` (region `southeastasia`), **Log Analytics** with `daily_quota_gb` cap,
+  ACA environment, **api** + **web** Container Apps (public ghcr images, `min_replicas=0`,
+  `max_replicas=2`, ACA secrets for Neon-pooled + JWT key, health probes →
+  `/health/live` + `/health/ready`), and a **budget alert** (default $1 tripwire).
+- **Secrets**: app secrets are **ACA-native** (`secret {}` blocks), values from a
+  git-ignored `terraform.tfvars`. Terraform is applied **locally** (not in CI); CI only
+  rolls the image. State files + `*.tfvars` git-ignored; `.terraform.lock.hcl` committed.
+- **Run order + the build-time-env wrinkle** (web bakes `VITE_API_BASE_URL` at build, known
+  only after apply): see `infra/README.md`.
+
 ## Status & next rounds
 
 **Done:** repo structure; **API round** (notes CRUD + Google auth + per-user ownership +
@@ -172,12 +195,19 @@ service) — verified end-to-end via `docker compose up`; pgAdmin added at `:505
 Toolkit, Vitest+RTL tests, nginx Dockerfile + compose `web`) — verified end-to-end in
 containers with a real Google sign-in. **CI round** (`api.yml`/`frontend.yml`: validate
 on every PR + publish images to ghcr on merge to main; `dev`+`main` branches; branch
-protection on `main`).
+protection on `main`). Health endpoints added (`/health/live`, `/health/ready`).
+**Infra round (code written, apply pending):** `infra/` Terraform (bootstrap + ACA api/web +
+Log Analytics cap + budget) and `deploy` jobs (OIDC → migrate → `az containerapp update`).
+Azure subscription active; `az` logged in.
 
-**Deferred:** Azure IaC (Terraform: ACA, Log Analytics) + the actual deploy job (pulls
-the ghcr images); Neon provisioning + prod migration pipeline; prod `VITE_API_BASE_URL`.
+**Remaining to go live (user-driven, see `infra/README.md`):** install Terraform; Neon
+signup (pooled + direct strings); `terraform apply` (bootstrap then main); set GitHub
+`AZURE_*` + `DATABASE_CONNECTION_STRING` secrets and `VITE_API_BASE_URL`/`AZURE_RESOURCE_GROUP`/
+`ACA_API_NAME`/`ACA_WEB_NAME`/`DEPLOY_ENABLED` variables; add prod web URL to Google OAuth
+origins; merge `dev`→`main` (this round's code) to trigger first deploy.
 
-Planned rounds (each planned separately before building): **infra + Azure deploy**.
+**Deferred (future):** Terraform-in-CI, Key Vault, App Insights/OTel, custom domain, MCP
+server, guest/demo mode. (See `notes-app-future-enhancements` memory.)
 
 ## Estimated cost (demo traffic: owner + occasional reviewer)
 

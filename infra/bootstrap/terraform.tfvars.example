@@ -1,0 +1,8 @@
+# Copy to terraform.tfvars and fill in. terraform.tfvars is git-ignored.
+# Get your subscription id with:  az account show --query id -o tsv
+
+subscription_id = "00000000-0000-0000-0000-000000000000"
+
+# Optional overrides (defaults are fine):
+# location               = "southeastasia"
+# github_repo            = "mark-vanzuela/notes-app"

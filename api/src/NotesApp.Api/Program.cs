@@ -1,5 +1,6 @@
 using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
@@ -50,6 +51,15 @@ builder.Services.AddInfrastructure(builder.Configuration);
 // The current user is resolved per-request from the JWT claims on HttpContext.
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUser, CurrentUser>();
+
+// --- Health checks ---------------------------------------------------------
+// Liveness ("is the process up?") vs readiness ("can it actually serve traffic?",
+// i.e. the database is reachable). Azure Container Apps points its liveness probe
+// at /health/live and its readiness/startup probe at /health/ready. Keeping the DB
+// check OUT of liveness avoids restart loops if the DB is briefly unavailable.
+builder.Services
+    .AddHealthChecks()
+    .AddDbContextCheck<NotesDbContext>("database", tags: new[] { "ready" });
 
 // --- Authentication / Authorization ----------------------------------------
 // Validate the application's OWN JWT (issued by JwtTokenGenerator). The signing
@@ -117,6 +127,12 @@ app.UseCors(FrontendCorsPolicy);
 
 app.UseAuthentication();
 app.UseAuthorization();
+
+// Health endpoints — anonymous (no [Authorize]) so probes/monitors can reach them.
+//   /health/live  -> liveness: 200 if the app is running (no dependency checks).
+//   /health/ready -> readiness: 200 only if the "ready"-tagged checks (DB) pass.
+app.MapHealthChecks("/health/live", new HealthCheckOptions { Predicate = _ => false });
+app.MapHealthChecks("/health/ready", new HealthCheckOptions { Predicate = check => check.Tags.Contains("ready") });
 
 app.MapControllers();
 
