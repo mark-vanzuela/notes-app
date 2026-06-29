@@ -1,73 +1,107 @@
 # Notes App
 
-A simple full-stack notes application — built as a demonstration of full-stack +
-DevOps skills: a React frontend, a C# ASP.NET Core Web API, and a Postgres database,
-all containerized and deployed to Azure.
+A full-stack notes application with Google sign-in — built end-to-end (frontend, API,
+database, containers, CI/CD, and cloud infrastructure) as a demonstration of full-stack
+and DevOps skills.
+
+**▶︎ Live demo:** https://notes-app-web.redriver-02dffc60.southeastasia.azurecontainerapps.io
+
+> The app runs **scale-to-zero** on Azure, so the **first request after it's been idle
+> takes ~10–20s** to wake up (both the app and the serverless database). Subsequent
+> requests are instant.
+
+<!-- TODO: add a short screen recording / GIF of the app here as a fallback demo. -->
+
+---
+
+## Highlights
+
+- **Clean, layered backend** — ASP.NET Core 8 with Clean Architecture + CQRS (MediatR),
+  FluentValidation, centralized error handling, and EF Core 8 / PostgreSQL.
+- **Real auth** — Google sign-in (ID token) exchanged for an app-issued **JWT**, with
+  **per-user data isolation** enforced from token claims (never client input).
+- **Containerized & cloud-native** — multi-stage Docker images on **Azure Container Apps**
+  (scale-to-zero), serverless **Neon** Postgres, health probes.
+- **CI/CD done properly** — GitHub Actions with **required test checks + branch
+  protection**, image publishing to **GHCR**, and **passwordless (OIDC) deploys** that run
+  database migrations and roll the container image on merge to `main`.
+- **Infrastructure as Code** — the entire Azure environment is **Terraform** (`azurerm`),
+  with remote state, a budget alert, and a Log Analytics ingestion cap.
+- **Tested on both tiers** — xUnit/Moq (API) and Vitest/React Testing Library (frontend).
+
+## Tech stack
+
+| Area | Technologies |
+| --- | --- |
+| **Frontend** | React 19, Vite, TypeScript, Redux Toolkit, React Router, Vitest + React Testing Library |
+| **Backend** | C# / ASP.NET Core 8, Clean Architecture, CQRS (MediatR), FluentValidation, EF Core 8, xUnit + Moq |
+| **Database** | PostgreSQL 16 — local via Docker; **Neon** serverless in production |
+| **Auth** | Google OAuth → app-issued JWT (HMAC), per-user authorization |
+| **DevOps** | Docker (multi-stage), Docker Compose, GitHub Actions, GitHub Container Registry, **Terraform**, **Azure Container Apps**, OIDC federation, Log Analytics |
 
 ## Architecture
 
 ```
-┌────────────┐      HTTP/JSON      ┌──────────────────┐      Npgsql       ┌────────────┐
-│  React SPA │ ──────────────────► │  ASP.NET Core    │ ────────────────► │  Postgres  │
-│ (Vite + TS)│                     │  Web API (.NET 8)│   EF Core 8       │  (Neon/    │
-└────────────┘                     └──────────────────┘                   │   local)   │
-                                                                          └────────────┘
+                         Azure Container Apps (scale-to-zero)
+                      ┌───────────────────────────────────────┐
+  Browser ──HTTPS──►  │  web (nginx + React SPA)              │
+                      │        │                              │
+                      │        ▼  HTTPS / JSON (+ Bearer JWT)  │        ┌──────────────┐
+                      │  api (ASP.NET Core 8)  ──Npgsql/EF──►──┼──────► │  Neon         │
+                      └───────────────────────────────────────┘        │  PostgreSQL   │
+                                  ▲   pulls images                      └──────────────┘
+                                  │
+   GitHub  ──push to main──►  CI: build + test ──► publish images ──► GHCR
+                             CD: OIDC login ──► migrate ──► az containerapp update
+   Infra:  Terraform (azurerm) provisions the environment above
 ```
 
-This is a **monorepo**. The frontend and API are **deployed independently** via
-path-filtered CI — a monorepo does not force coupled deployment.
+This is a **monorepo**; the frontend and API build and deploy **independently** via
+path-aware workflows.
 
 ## Repository layout
 
-| Path                | Purpose                                                        |
-| ------------------- | -------------------------------------------------------------- |
-| `frontend/`         | React + Vite + TypeScript single-page app                      |
-| `api/`              | ASP.NET Core (.NET 8) Web API solution + EF Core migrations    |
-| `infra/`            | Azure infrastructure-as-code (deferred)                        |
-| `.github/workflows/`| CI/CD pipelines (path-filtered per app)                        |
-| `docker-compose.yml`| Local dev: web + api + postgres                                |
+| Path | Purpose |
+| --- | --- |
+| `frontend/` | React + Vite + TypeScript SPA ([details](frontend/README.md) · [walkthrough](frontend/FLOW.md)) |
+| `api/` | ASP.NET Core 8 Web API — Clean Architecture + EF Core ([details](api/README.md)) |
+| `infra/` | Terraform IaC for Azure ([run order](infra/README.md)) |
+| `.github/workflows/` | CI (validate) + CD (publish to GHCR, deploy to Azure) + DB migrations |
+| `docker-compose.yml` | Local dev stack: web + api + postgres + pgAdmin |
 
-## Tooling
-
-- **Frontend:** React + Vite + TypeScript
-- **API:** .NET 8 (LTS) ASP.NET Core Web API, controller-based
-- **Data:** EF Core 8 + Npgsql, code-first migrations (in `api/src/NotesApp.Api/Migrations/`)
-- **Database:** Postgres 16 — local via Docker Compose, Neon free tier for prod
-- **Containers:** multi-stage Dockerfiles per app; Docker Compose for local dev
-
-## Environments & deployment
-
-- **dev** = local Docker Compose (web + api + postgres). There is no separately hosted
-  dev environment in Azure.
-- **`main` = production** = the single Azure environment.
-
-Flow:
-
-```
-feature branch ──(PR to main)──► CI validates (build + test + docker build, NO deploy)
-                                        │
-                                  (merge to main)
-                                        ▼
-                          path-filtered DEPLOY to Azure
-                  (frontend changed → deploy web; api changed → deploy api)
-```
-
-Each workflow also supports `workflow_dispatch` for manual / force deploys.
-
-## Local development
+## Run it locally
 
 > Requires Docker Desktop.
 
 ```bash
-cp .env.example .env     # adjust values as needed
-docker compose up        # starts web + api + postgres
+cp .env.example .env          # fill in Google client id + Neon/JWT for full auth
+docker compose up --build     # web :5173 · api :8080 · postgres :5432 · pgAdmin :5050
 ```
 
-> NOTE: app code, Dockerfiles, and Compose service definitions are scaffolded in
-> later rounds. This commit establishes the repository **structure** only.
+Day-to-day frontend work can also use the Vite dev server (`cd frontend && npm run dev`).
+See the per-app READMEs for details (Google OAuth setup, env vars, tests).
 
-## Status
+## CI/CD & deployment
 
-This is the initial structure scaffold. Per-app implementation (frontend, API,
-migrations, containers, CI/CD, Azure infra) is planned and built in subsequent rounds.
-See `docs`/per-app READMEs as they land.
+- **Branches:** `dev` (integration) → PR → `main` (production). `main` is protected:
+  PRs required, the **"API CI" + "Frontend CI"** checks must pass, branch up-to-date.
+- **On every PR:** build + test both apps (required status checks).
+- **On merge to `main`:** publish images to GHCR (`latest` + immutable `sha-`), then the
+  **deploy** job logs into Azure via **OIDC** (no stored secret), applies EF Core
+  migrations against Neon, and rolls the Container App to the new image.
+- **Cost guardrails:** scale-to-zero (idle ≈ $0), a `maxReplicas` cap, a Log Analytics
+  daily ingestion cap, and a subscription budget alert.
+
+## Testing
+
+```bash
+# API
+cd api && dotnet test
+# Frontend
+cd frontend && npm run test:run
+```
+
+---
+
+Built by **Mark Vanzuela** — [LinkedIn](https://www.linkedin.com/in/markvanzuela/) ·
+[GitHub](https://github.com/mark-vanzuela)

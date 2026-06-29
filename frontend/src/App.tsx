@@ -6,6 +6,7 @@ import { LoginPage } from './features/auth/LoginPage';
 import { RequireAuth } from './features/auth/RequireAuth';
 import { NotesList } from './features/notes/NotesList';
 import { NoteForm } from './features/notes/NoteForm';
+import { Footer } from './components/Footer';
 import styles from './App.module.css';
 
 /**
@@ -22,7 +23,7 @@ function App() {
   const user = useAppSelector(selectAuthUser);
 
   return (
-    <>
+    <div className={styles.layout}>
       <header className={styles.header}>
         <Link className={styles.brand} to="/notes">
           Notes
@@ -75,7 +76,9 @@ function App() {
           <Route path="*" element={<Navigate to="/notes" replace />} />
         </Routes>
       </main>
-    </>
+
+      <Footer />
+    </div>
   );
 }
 

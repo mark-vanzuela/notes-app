@@ -1,45 +1,76 @@
 /* ==========================================================================
-   GLOBAL STYLES
-   Base resets, CSS variables (the design tokens), and a few reusable utility
-   classes (.btn, .alert, .muted, form controls). Component-specific styles live
-   in *.module.css files next to each component.
+   GLOBAL STYLES — "Warm editorial" theme
+   Cream paper background, serif display headings (Fraunces), humanist sans body
+   (Source Sans 3), terracotta accent. Design tokens live here; component-specific
+   styles in *.module.css.
    ========================================================================== */
 
 :root {
-  --color-bg: #f6f7f9;
-  --color-surface: #ffffff;
-  --color-border: #e2e5ea;
-  --color-text: #1f2430;
-  --color-muted: #6b7280;
-  --color-primary: #4f46e5;
-  --color-primary-hover: #4338ca;
-  --color-danger: #dc2626;
-  --color-danger-hover: #b91c1c;
-  --radius: 10px;
-  --shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
-  --font: system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  /* Palette */
+  --color-bg: #f6f1e7; /* warm cream */
+  --color-surface: #fffdf8; /* paper */
+  --color-surface-2: #fbf6ec; /* slightly tinted paper (hover/empty) */
+  --color-border: #e7dcc7; /* warm border */
+  --color-ink: #211c16; /* near-black ink */
+  --color-muted: #6f6557; /* warm gray */
+  --color-accent: #c45b3c; /* terracotta */
+  --color-accent-hover: #a8492e;
+  --color-accent-soft: #f5e4dc; /* terracotta tint */
+  --color-danger: #b23a2e;
+  --color-danger-hover: #95301f;
+  --color-danger-soft: #f6e1dc;
+
+  /* Type */
+  --font-display: 'Fraunces', Georgia, 'Times New Roman', serif;
+  --font-body: 'Source Sans 3', system-ui, -apple-system, 'Segoe UI', sans-serif;
+
+  /* Shape & depth */
+  --radius: 14px;
+  --radius-sm: 10px;
+  --shadow-sm: 0 1px 2px rgba(33, 28, 22, 0.06);
+  --shadow-md: 0 6px 20px -8px rgba(33, 28, 22, 0.18);
+  --shadow-lg: 0 18px 40px -16px rgba(33, 28, 22, 0.28);
 }
 
 * {
   box-sizing: border-box;
 }
 
-body {
-  margin: 0;
-  font-family: var(--font);
-  color: var(--color-text);
+html {
   background: var(--color-bg);
-  line-height: 1.5;
 }
 
-a {
-  color: var(--color-primary);
-  text-decoration: none;
+body {
+  margin: 0;
+  font-family: var(--font-body);
+  color: var(--color-ink);
+  background: var(--color-bg);
+  line-height: 1.55;
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  color: var(--color-ink);
+  letter-spacing: -0.01em;
+  margin: 0;
 }
 
 h1 {
-  font-size: 1.5rem;
-  margin: 0;
+  font-size: 1.7rem;
+}
+
+a {
+  color: var(--color-accent);
+  text-decoration: none;
+}
+a:hover {
+  color: var(--color-accent-hover);
 }
 
 /* ---- Buttons ------------------------------------------------------------ */
@@ -47,32 +78,42 @@ h1 {
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
-  padding: 0.5rem 0.9rem;
+  padding: 0.5rem 0.95rem;
   border: 1px solid transparent;
-  border-radius: var(--radius);
-  font-size: 0.9rem;
-  font-weight: 500;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-body);
+  font-size: 0.92rem;
+  font-weight: 600;
   cursor: pointer;
   background: var(--color-surface);
-  color: var(--color-text);
-  transition: background 0.15s, border-color 0.15s;
+  color: var(--color-ink);
+  transition: transform 0.06s ease, background 0.15s ease, border-color 0.15s ease,
+    box-shadow 0.15s ease;
 }
-
 .btn:hover {
-  background: #f0f1f4;
+  background: var(--color-surface-2);
+}
+.btn:active {
+  transform: translateY(1px);
 }
 
 .btn--primary {
-  background: var(--color-primary);
-  color: #fff;
+  background: var(--color-accent);
+  color: #fff7f2;
+  box-shadow: var(--shadow-sm);
 }
 .btn--primary:hover {
-  background: var(--color-primary-hover);
+  background: var(--color-accent-hover);
 }
 
 .btn--ghost {
-  border-color: var(--color-border);
   background: transparent;
+  border-color: var(--color-border);
+  color: var(--color-ink);
+}
+.btn--ghost:hover {
+  background: var(--color-surface-2);
+  border-color: #d8caae;
 }
 
 .btn--danger {
@@ -81,7 +122,7 @@ h1 {
   border-color: var(--color-border);
 }
 .btn--danger:hover {
-  background: #fdecec;
+  background: var(--color-danger-soft);
   border-color: var(--color-danger);
 }
 
@@ -92,47 +133,53 @@ h1 {
 
 .alert {
   padding: 0.75rem 1rem;
-  border-radius: var(--radius);
+  border-radius: var(--radius-sm);
   border: 1px solid transparent;
+  font-size: 0.92rem;
 }
 .alert--error {
-  background: #fdecec;
-  border-color: #f5c2c2;
+  background: var(--color-danger-soft);
+  border-color: #e6b9b1;
   color: var(--color-danger-hover);
 }
 
 /* ---- Form controls ------------------------------------------------------ */
 label {
   display: block;
-  font-size: 0.85rem;
+  font-size: 0.82rem;
   font-weight: 600;
-  margin-bottom: 0.3rem;
+  letter-spacing: 0.01em;
+  margin-bottom: 0.35rem;
+  color: var(--color-muted);
 }
 
 input,
 textarea {
   width: 100%;
-  padding: 0.55rem 0.7rem;
+  padding: 0.6rem 0.75rem;
   border: 1px solid var(--color-border);
-  border-radius: var(--radius);
+  border-radius: var(--radius-sm);
   font: inherit;
   background: var(--color-surface);
-  color: var(--color-text);
+  color: var(--color-ink);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
-
+input::placeholder,
+textarea::placeholder {
+  color: #a89b86;
+}
 input:focus,
 textarea:focus {
-  outline: 2px solid var(--color-primary);
-  outline-offset: 1px;
-  border-color: var(--color-primary);
+  outline: none;
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px var(--color-accent-soft);
 }
 
 .field {
-  margin-bottom: 1rem;
+  margin-bottom: 1.1rem;
 }
-
 .field__error {
   color: var(--color-danger);
-  font-size: 0.8rem;
-  margin-top: 0.3rem;
+  font-size: 0.82rem;
+  margin-top: 0.35rem;
 }
