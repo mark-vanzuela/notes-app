@@ -50,7 +50,9 @@ export function NotesList() {
       {status === 'failed' && <p className="alert alert--error">{error}</p>}
 
       {status === 'succeeded' && notes.length === 0 && (
-        <p className="muted">No notes yet. Create your first one!</p>
+        <div className={styles.empty}>
+          <p>No notes yet — your first one is a click away.</p>
+        </div>
       )}
 
       {status === 'succeeded' && notes.length > 0 && (

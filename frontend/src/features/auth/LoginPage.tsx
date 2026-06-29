@@ -42,7 +42,9 @@ export function LoginPage() {
     <div className={styles.wrap}>
       <div className={styles.card}>
         <h1>Notes</h1>
-        <p className="muted">Sign in with your Google account to access your notes.</p>
+        <p className={styles.tagline}>
+          Your notes, anywhere. Sign in with Google to get started.
+        </p>
 
         {error && <p className="alert alert--error">{error}</p>}
 
@@ -50,7 +52,7 @@ export function LoginPage() {
           <GoogleLogin onSuccess={(cred) => handleSuccess(cred.credential)} onError={() => {}} />
         </div>
 
-        {status === 'loading' && <p className="muted">Signing in…</p>}
+        {status === 'loading' && <p className={`muted ${styles.status}`}>Signing in…</p>}
       </div>
     </div>
   );

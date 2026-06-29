@@ -2,27 +2,43 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  min-height: 70vh;
-  padding: 1rem;
+  min-height: 65vh; /* centers the card without overflowing past the footer */
+  padding: 1.5rem;
 }
 
 .card {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius);
-  box-shadow: var(--shadow);
-  padding: 2.5rem;
-  max-width: 380px;
+  box-shadow: var(--shadow-lg);
+  padding: 3rem 2.75rem;
+  max-width: 400px;
   width: 100%;
   text-align: center;
 }
 
 .card h1 {
-  margin-bottom: 0.5rem;
+  font-size: 2.4rem;
+  margin-bottom: 0.6rem;
+}
+/* terracotta accent dot to echo the header wordmark */
+.card h1::after {
+  content: '.';
+  color: var(--color-accent);
+}
+
+.tagline {
+  color: var(--color-muted);
+  margin: 0 auto 1.75rem;
+  max-width: 26ch;
 }
 
 .button {
-  margin-top: 1.5rem;
+  margin-top: 0.5rem;
   display: flex;
   justify-content: center;
+}
+
+.status {
+  margin-top: 1rem;
 }
