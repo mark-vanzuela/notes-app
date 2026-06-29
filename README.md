@@ -10,7 +10,7 @@ and DevOps skills.
 > takes ~10–20s** to wake up (both the app and the serverless database). Subsequent
 > requests are instant.
 
-<!-- TODO: add a short screen recording / GIF of the app here as a fallback demo. -->
+![Notes app — sign in with Google, then create, edit, and delete notes](docs/demo.gif)
 
 ---
 
