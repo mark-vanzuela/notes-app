@@ -91,6 +91,11 @@ resource "azurerm_container_app" "api" {
         name  = "Authentication__Google__ClientId"
         value = var.google_client_id
       }
+      # Allow the deployed web app's origin through CORS.
+      env {
+        name  = "Cors__AllowedOrigins"
+        value = "https://${azurerm_container_app.web.ingress[0].fqdn}"
+      }
 
       liveness_probe {
         transport = "HTTP"

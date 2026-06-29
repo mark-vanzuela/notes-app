@@ -86,16 +86,23 @@ builder.Services
 builder.Services.AddAuthorization();
 
 // --- CORS ------------------------------------------------------------------
-// For LOCAL DEVELOPMENT allow any http://localhost:<port> origin so the React dev
-// server (Vite, port may drift) can call the API. Lock this down in production.
+// Allow any http://localhost:<port> origin for LOCAL DEV (Vite ports drift), plus
+// any explicit production origins from config. In prod, Cors__AllowedOrigins is set
+// to the deployed web app's URL (comma-separated for multiple).
+var allowedOrigins = (builder.Configuration["Cors:AllowedOrigins"] ?? string.Empty)
+    .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
 const string FrontendCorsPolicy = "AllowLocalFrontends";
 builder.Services.AddCors(options =>
 {
     options.AddPolicy(FrontendCorsPolicy, policy =>
         policy
             .SetIsOriginAllowed(origin =>
-                Uri.TryCreate(origin, UriKind.Absolute, out var uri)
-                && (uri.Host == "localhost" || uri.Host == "127.0.0.1"))
+            {
+                if (!Uri.TryCreate(origin, UriKind.Absolute, out var uri)) return false;
+                if (uri.Host == "localhost" || uri.Host == "127.0.0.1") return true;
+                return allowedOrigins.Contains(origin, StringComparer.OrdinalIgnoreCase);
+            })
             .AllowAnyHeader()
             .AllowAnyMethod());
 });
